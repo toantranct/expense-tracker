@@ -47,16 +47,32 @@ export default function ReportsPage() {
           throw new Error("Invalid response from API")
         }
         
+        // Extract the actual data from the response
+        const data = response.data || response;
+        
         // Ensure we have all the required properties
-        if (!response.expenseCategories) {
-          response.expenseCategories = []
+        if (!data.expenseCategories) {
+          data.expenseCategories = []
         }
         
-        if (!response.incomeCategories) {
-          response.incomeCategories = []
+        if (!data.incomeCategories) {
+          data.incomeCategories = []
+        }
+
+        // Convert the daily data to monthly data format if needed
+        if (data.dailyData && !data.monthlyData) {
+          data.monthlyData = data.dailyData.map((item: any) => {
+            const date = new Date(item.date);
+            return {
+              date: date.getDate().toString(), // Use day of month as date
+              month: date.getMonth() + 1,
+              expense: parseFloat(item.expense) || 0,
+              income: parseFloat(item.income) || 0
+            };
+          });
         }
         
-        setReportData(response)
+        setReportData(data)
       } catch (err) {
         console.error("Error fetching report data:", err)
         setError(err.message || "Failed to fetch report data")
@@ -114,6 +130,12 @@ export default function ReportsPage() {
 
   const toggleSortOrder = () => {
     setSortOrder((prevOrder) => (prevOrder === "asc" ? "desc" : "asc"))
+  }
+
+  // Ensure numerical values for calculations
+  const safeNumber = (value: any) => {
+    if (value === undefined || value === null) return 0;
+    return typeof value === 'string' ? parseFloat(value) : Number(value);
   }
 
   return (
@@ -200,12 +222,12 @@ export default function ReportsPage() {
                               activeTab === "expenses"
                                 ? reportData?.expenseCategories.map(cat => ({
                                     name: cat.name,
-                                    value: cat.amount || 0,
+                                    value: safeNumber(cat.amount),
                                     color: cat.color
                                   })) || []
                                 : reportData?.incomeCategories.map(cat => ({
                                     name: cat.name,
-                                    value: cat.amount || 0,
+                                    value: safeNumber(cat.amount),
                                     color: cat.color
                                   })) || []
                             }
@@ -216,8 +238,8 @@ export default function ReportsPage() {
                           <BarChartComponent
                             data={reportData?.monthlyData?.map(item => ({
                               date: item.month ? `Tháng ${item.month}` : item.date,
-                              expense: item.expense || 0,
-                              income: item.income || 0
+                              expense: safeNumber(item.expense),
+                              income: safeNumber(item.income)
                             })) || []}
                             title={`${getChartTitle()} - Biểu đồ cột`}
                           />
@@ -226,8 +248,8 @@ export default function ReportsPage() {
                           <LineChartComponent
                             data={reportData?.monthlyData?.map(item => ({
                               date: item.month ? `Tháng ${item.month}` : item.date,
-                              expense: item.expense || 0,
-                              income: item.income || 0
+                              expense: safeNumber(item.expense),
+                              income: safeNumber(item.income)
                             })) || []}
                             title={`${getChartTitle()} - Biểu đồ đường`}
                           />
@@ -236,8 +258,8 @@ export default function ReportsPage() {
                           <ComboChartComponent
                             data={reportData?.monthlyData?.map(item => ({
                               date: item.month ? `Tháng ${item.month}` : item.date,
-                              expense: item.expense || 0,
-                              income: item.income || 0
+                              expense: safeNumber(item.expense),
+                              income: safeNumber(item.income)
                             })) || []}
                             title={`${getChartTitle()} - Biểu đồ kết hợp`}
                           />
@@ -263,7 +285,11 @@ export default function ReportsPage() {
                     ) : (
                       <div className="space-y-4">
                         {[...(reportData?.[activeTab === "expenses" ? "expenseCategories" : "incomeCategories"] || [])]
-                          .sort((a, b) => (sortOrder === "asc" ? a.amount - b.amount : b.amount - a.amount))
+                          .sort((a, b) => {
+                            const aAmount = safeNumber(a.amount);
+                            const bAmount = safeNumber(b.amount);
+                            return sortOrder === "asc" ? aAmount - bAmount : bAmount - aAmount;
+                          })
                           .map((item: any, index: number) => (
                             <div
                               key={index}
@@ -277,11 +303,11 @@ export default function ReportsPage() {
                                 <span className="font-medium">{item.name}</span>
                               </div>
                               <div className="flex items-center gap-4">
-                                <span className="font-medium">{item.amount.toLocaleString()}₫</span>
+                                <span className="font-medium">{safeNumber(item.amount).toLocaleString()}₫</span>
                                 <span className="text-gray-500 text-sm w-16 text-right">
                                   {(
-                                    (item.amount /
-                                      reportData[`total${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`]) *
+                                    (safeNumber(item.amount) /
+                                      safeNumber(reportData[`total${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`])) *
                                     100
                                   ).toFixed(1)}
                                   %
@@ -300,13 +326,13 @@ export default function ReportsPage() {
                   <Card className="p-6">
                     <div className="text-sm text-gray-600 mb-1">Chi tiêu</div>
                     <div className="text-2xl font-bold text-red-500">
-                      {loading ? "Đang tải..." : error ? "Lỗi" : `-${reportData?.totalExpenses?.toLocaleString()}₫`}
+                      {loading ? "Đang tải..." : error ? "Lỗi" : `-${safeNumber(reportData?.totalExpenses).toLocaleString()}₫`}
                     </div>
                   </Card>
                   <Card className="p-6">
                     <div className="text-sm text-gray-600 mb-1">Thu nhập</div>
                     <div className="text-2xl font-bold text-blue-500">
-                      {loading ? "Đang tải..." : error ? "Lỗi" : `+${reportData?.totalIncome?.toLocaleString()}₫`}
+                      {loading ? "Đang tải..." : error ? "Lỗi" : `+${safeNumber(reportData?.totalIncome).toLocaleString()}₫`}
                     </div>
                   </Card>
                   <Card className="p-6 lg:col-span-1">
@@ -316,7 +342,7 @@ export default function ReportsPage() {
                         ? "Đang tải..."
                         : error
                           ? "Lỗi"
-                          : `${(reportData?.totalIncome - reportData?.totalExpenses)?.toLocaleString()}₫`}
+                          : `${(safeNumber(reportData?.totalIncome) - safeNumber(reportData?.totalExpenses)).toLocaleString()}₫`}
                     </div>
                   </Card>
                 </div>
@@ -332,16 +358,16 @@ export default function ReportsPage() {
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Trung bình mỗi ngày</span>
                         <span className="font-medium">
-                          {(reportData?.totalExpenses / reportData?.daysInPeriod)?.toLocaleString()}₫
+                          {(safeNumber(reportData?.totalExpenses) / safeNumber(reportData?.daysInPeriod)).toLocaleString()}₫
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Ngày cao nhất</span>
-                        <span className="font-medium">{reportData?.highestExpenseDay?.amount?.toLocaleString()}₫</span>
+                        <span className="font-medium">{safeNumber(reportData?.highestExpenseDay?.amount).toLocaleString()}₫</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Ngày thấp nhất</span>
-                        <span className="font-medium">{reportData?.lowestExpenseDay?.amount?.toLocaleString()}₫</span>
+                        <span className="font-medium">{safeNumber(reportData?.lowestExpenseDay?.amount).toLocaleString()}₫</span>
                       </div>
                     </div>
                   )}
@@ -356,4 +382,3 @@ export default function ReportsPage() {
     </div>
   )
 }
-

@@ -61,6 +61,33 @@ const renderActiveShape = (props: any) => {
   )
 }
 
+// Định nghĩa kiểu dữ liệu cho response từ API
+interface CategoryData {
+  name: string
+  value: string
+  transaction_count: number
+  max_transaction: string
+  min_transaction: string
+  avg_transaction: string
+  icon: string
+  color: string
+  description: string
+}
+
+interface YearlyData {
+  year: number
+  value: string
+}
+
+interface ApiResponse {
+  success: boolean
+  message: string
+  data: {
+    categories: CategoryData[]
+    yearlyData: YearlyData[]
+  }
+}
+
 export default function DetailedReportsPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
@@ -68,7 +95,14 @@ export default function DetailedReportsPage() {
   const [activeIndex, setActiveIndex] = useState(-1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [data, setData] = useState<any>(null)
+  const [reportData, setReportData] = useState<{
+    categories: CategoryData[],
+    yearlyData: YearlyData[]
+  }>({
+    categories: [],
+    yearlyData: []
+  })
+
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
 
   const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i)
@@ -79,11 +113,21 @@ export default function DetailedReportsPage() {
       setLoading(true)
       setError(null)
       try {
-        const response = await api.detailedReports.get(selectedYear, selectedMonth)
-        setData(response)
+        const response = await api.detailedReports.get(selectedYear, selectedMonth) as ApiResponse
+        
+        // Kiểm tra success và lấy data từ response
+        if (response.success && response.data) {
+          setReportData(response.data)
+        } else {
+          throw new Error(response.message || "Failed to load data")
+        }
       } catch (err) {
         console.error("Error fetching detailed report:", err)
         setError("Failed to load report data")
+        setReportData({
+          categories: [],
+          yearlyData: []
+        })
       } finally {
         setLoading(false)
       }
@@ -103,6 +147,17 @@ export default function DetailedReportsPage() {
   const toggleSortOrder = () => {
     setSortOrder((prevOrder) => (prevOrder === "asc" ? "desc" : "asc"))
   }
+
+  // Chuyển đổi giá trị sang số để sử dụng trong biểu đồ
+  const processedCategories = reportData.categories.map(category => ({
+    ...category,
+    value: parseFloat(category.value)
+  }))
+
+  const processedYearlyData = reportData.yearlyData.map(item => ({
+    ...item,
+    value: parseFloat(item.value)
+  }))
 
   if (loading) {
     return (
@@ -214,7 +269,7 @@ export default function DetailedReportsPage() {
                         <Pie
                           activeIndex={activeIndex}
                           activeShape={renderActiveShape}
-                          data={data?.categories || []}
+                          data={processedCategories}
                           cx="50%"
                           cy="50%"
                           innerRadius={60}
@@ -224,8 +279,8 @@ export default function DetailedReportsPage() {
                           onMouseEnter={onPieEnter}
                           onMouseLeave={onPieLeave}
                         >
-                          {data?.categories.map((entry: any, index: number) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          {processedCategories.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
                         <Tooltip
@@ -246,7 +301,7 @@ export default function DetailedReportsPage() {
                   <h3 className="text-lg font-semibold mb-4">Phân tích theo năm</h3>
                   <div className="h-[400px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={data?.yearlyData || []}>
+                      <BarChart data={processedYearlyData}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis
                           dataKey="year"
@@ -283,9 +338,13 @@ export default function DetailedReportsPage() {
                 </Button>
               </div>
               <div className="grid gap-4">
-                {data?.categories
-                  .sort((a: any, b: any) => (sortOrder === "asc" ? a.value - b.value : b.value - a.value))
-                  .map((item: any, index: number) => (
+                {[...reportData.categories]
+                  .sort((a, b) => {
+                    const aValue = parseFloat(a.value);
+                    const bValue = parseFloat(b.value);
+                    return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+                  })
+                  .map((item, index) => (
                     <div
                       key={index}
                       className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
@@ -293,14 +352,14 @@ export default function DetailedReportsPage() {
                       <div className="flex items-center gap-3">
                         <div
                           className="w-4 h-4 rounded-full"
-                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                          style={{ backgroundColor: item.color || COLORS[index % COLORS.length] }}
                         />
                         <div>
                           <span className="font-medium">{item.name}</span>
                           {item.description && <p className="text-sm text-gray-500">{item.description}</p>}
                         </div>
                       </div>
-                      <span className="font-semibold">{item.value.toLocaleString()}</span>
+                      <span className="font-semibold">{parseFloat(item.value).toLocaleString()}</span>
                     </div>
                   ))}
               </div>
@@ -313,4 +372,3 @@ export default function DetailedReportsPage() {
     </div>
   )
 }
-
