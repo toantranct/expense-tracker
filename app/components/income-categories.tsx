@@ -12,16 +12,28 @@ const categories = [
   { id: 8, name: "Chỉnh sửa", icon: Settings, color: "text-gray-500" },
 ]
 
-export default function IncomeCategories() {
+interface IncomeCategoriesProps {
+  onSelectCategory?: (category: {id: number, name: string}) => void;
+  selectedCategoryId?: number;
+}
+
+export default function IncomeCategories({ onSelectCategory, selectedCategoryId }: IncomeCategoriesProps = {}) {
   return (
     <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
       {categories.map((category) => {
         const Icon = category.icon
+        const isSelected = selectedCategoryId === category.id
+        
         return (
           <Button
             key={category.id}
             variant="outline"
-            className="flex flex-col h-24 items-center justify-center p-2 hover:border-green-500 transition-colors"
+            className={`flex flex-col h-24 items-center justify-center p-2 transition-colors ${
+              isSelected 
+                ? "border-green-500 bg-green-50" 
+                : "hover:border-green-500"
+            }`}
+            onClick={() => onSelectCategory && onSelectCategory(category)}
           >
             <Icon className={`w-8 h-8 ${category.color} mb-2`} />
             <span className="text-xs text-center text-gray-600">{category.name}</span>

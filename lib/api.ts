@@ -30,13 +30,13 @@ async function handleMockRequest(endpoint: string, options: RequestInit): Promis
     console.log("Matching route:", route)
 
     switch (route) {
-      case "GET /summary/monthly": {
+      case "GET summary/monthly": {
         const year = Number.parseInt(url.searchParams.get("year") || "2024")
         const month = Number.parseInt(url.searchParams.get("month") || "5")
         result = mockApiHandlers.getMonthlySummary(year, month)
         break
       }
-      case "GET /summary/yearly": {
+      case "GET summary/yearly": {
         const year = Number.parseInt(url.searchParams.get("year") || "2024")
         result = mockApiHandlers.getYearlySummary(year)
         break
@@ -76,7 +76,7 @@ async function handleMockRequest(endpoint: string, options: RequestInit): Promis
       case "POST text-replacement":
         result = mockApiHandlers.replaceText(JSON.parse(options.body as string).text)
         break
-      case "GET /detailed-reports":
+      case "GET detailed-reports":
         const year = Number.parseInt(url.searchParams.get("year") || "2024")
         const month = Number.parseInt(url.searchParams.get("month") || "5")
         result = mockApiHandlers.getDetailedReport(year, month)

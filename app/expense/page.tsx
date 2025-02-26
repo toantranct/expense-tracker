@@ -21,8 +21,10 @@ export default function ExpensePage() {
   const [note, setNote] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [replacedNote, setReplacedNote] = useState("")
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [selectedCategory, setSelectedCategory] = useState<{id: number, name: string} | null>(null)
 
   const handlePreviousDay = () => {
     const newDate = new Date(selectedDate)
@@ -52,15 +54,35 @@ export default function ExpensePage() {
     replaceText()
   }, [note])
 
+  const handleCategorySelect = (category: {id: number, name: string}) => {
+    setSelectedCategory(category)
+  }
+
   const handleSubmit = async () => {
+    if (!amount || Number.isNaN(Number.parseFloat(amount)) || Number.parseFloat(amount) <= 0) {
+      setError("Vui lòng nhập số tiền hợp lệ")
+      return
+    }
+
+    if (!note) {
+      setError("Vui lòng nhập ghi chú")
+      return
+    }
+
+    if (!selectedCategory) {
+      setError("Vui lòng chọn danh mục")
+      return
+    }
+
     setLoading(true)
     setError(null)
+    setSuccess(null)
     try {
       const data = {
         amount: Number.parseFloat(amount),
-        note: replacedNote,
+        description: replacedNote || note,
         date: selectedDate.toISOString().split("T")[0],
-        category_id: 1, // Assume category_id is 1 for now, you'll need to implement category selection
+        category: selectedCategory.name,
       }
       if (activeTab === "expense") {
         await api.expenses.create(data)
@@ -70,8 +92,15 @@ export default function ExpensePage() {
       setAmount("")
       setNote("")
       setReplacedNote("")
-      // You might want to show a success message here
+      setSelectedCategory(null)
+      setSuccess("Đã lưu thành công!")
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccess(null)
+      }, 3000)
     } catch (err) {
+      console.error("Error submitting transaction:", err)
       setError("Failed to submit. Please try again.")
     } finally {
       setLoading(false)
@@ -160,10 +189,19 @@ export default function ExpensePage() {
 
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold mb-4">Danh mục</h2>
-              {activeTab === "expense" ? <ExpenseCategories /> : <IncomeCategories />}
+              {activeTab === "expense" 
+                ? <ExpenseCategories onSelectCategory={handleCategorySelect} selectedCategoryId={selectedCategory?.id} /> 
+                : <IncomeCategories onSelectCategory={handleCategorySelect} selectedCategoryId={selectedCategory?.id} />
+              }
+              {selectedCategory && (
+                <div className="mt-4 text-sm text-green-600">
+                  Đã chọn: {selectedCategory.name}
+                </div>
+              )}
             </div>
 
             {error && <div className="mt-4 p-4 bg-red-100 text-red-700 rounded-lg">{error}</div>}
+            {success && <div className="mt-4 p-4 bg-green-100 text-green-700 rounded-lg">{success}</div>}
 
             <div className="mt-6">
               <Button

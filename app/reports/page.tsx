@@ -35,12 +35,27 @@ export default function ReportsPage() {
         const month = selectedDate.getMonth() + 1
         console.log("Fetching data for:", { year, month, viewType })
 
-        const response =
-          viewType === "monthly" ? await api.summary.monthly(year, month) : await api.summary.yearly(year)
+        let response;
+        if (viewType === "monthly") {
+          response = await api.summary.monthly(year, month)
+        } else {
+          response = await api.summary.yearly(year)
+        }
+        
         console.log("Fetched report data:", response)
         if (!response || typeof response !== "object") {
           throw new Error("Invalid response from API")
         }
+        
+        // Ensure we have all the required properties
+        if (!response.expenseCategories) {
+          response.expenseCategories = []
+        }
+        
+        if (!response.incomeCategories) {
+          response.incomeCategories = []
+        }
+        
         setReportData(response)
       } catch (err) {
         console.error("Error fetching report data:", err)
@@ -183,27 +198,47 @@ export default function ReportsPage() {
                           <PieChartComponent
                             data={
                               activeTab === "expenses"
-                                ? reportData?.expenseCategories || []
-                                : reportData?.incomeCategories || []
+                                ? reportData?.expenseCategories.map(cat => ({
+                                    name: cat.name,
+                                    value: cat.amount || 0,
+                                    color: cat.color
+                                  })) || []
+                                : reportData?.incomeCategories.map(cat => ({
+                                    name: cat.name,
+                                    value: cat.amount || 0,
+                                    color: cat.color
+                                  })) || []
                             }
                             title={`${getChartTitle()} - ${activeTab === "expenses" ? "Chi tiêu" : "Thu nhập"}`}
                           />
                         )}
                         {chartType === "bar" && (
                           <BarChartComponent
-                            data={reportData?.monthlyData || []}
+                            data={reportData?.monthlyData?.map(item => ({
+                              date: item.month ? `Tháng ${item.month}` : item.date,
+                              expense: item.expense || 0,
+                              income: item.income || 0
+                            })) || []}
                             title={`${getChartTitle()} - Biểu đồ cột`}
                           />
                         )}
                         {chartType === "line" && (
                           <LineChartComponent
-                            data={reportData?.monthlyData || []}
+                            data={reportData?.monthlyData?.map(item => ({
+                              date: item.month ? `Tháng ${item.month}` : item.date,
+                              expense: item.expense || 0,
+                              income: item.income || 0
+                            })) || []}
                             title={`${getChartTitle()} - Biểu đồ đường`}
                           />
                         )}
                         {chartType === "combo" && (
                           <ComboChartComponent
-                            data={reportData?.monthlyData || []}
+                            data={reportData?.monthlyData?.map(item => ({
+                              date: item.month ? `Tháng ${item.month}` : item.date,
+                              expense: item.expense || 0,
+                              income: item.income || 0
+                            })) || []}
                             title={`${getChartTitle()} - Biểu đồ kết hợp`}
                           />
                         )}
