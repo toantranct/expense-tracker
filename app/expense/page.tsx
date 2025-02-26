@@ -25,6 +25,8 @@ export default function ExpensePage() {
   const [replacedNote, setReplacedNote] = useState("")
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<{id: number, name: string} | null>(null)
+  const [categories, setCategories] = useState<any[]>([])
+  const [categoryLoading, setCategoryLoading] = useState(false)
 
   const handlePreviousDay = () => {
     const newDate = new Date(selectedDate)
@@ -37,6 +39,37 @@ export default function ExpensePage() {
     newDate.setDate(newDate.getDate() + 1)
     setSelectedDate(newDate)
   }
+
+  // Fetch expense categories when tab changes to expense
+  useEffect(() => {
+    const fetchCategories = async () => {
+      if (activeTab === "expense") {
+        try {
+          setCategoryLoading(true);
+          const data = await api.categories.getExpenseCategories();
+          setCategories(data);
+        } catch (err) {
+          console.error("Failed to fetch expense categories:", err);
+          setError("Failed to load expense categories. Please try again.");
+        } finally {
+          setCategoryLoading(false);
+        }
+      } else {
+        try {
+          setCategoryLoading(true);
+          const data = await api.categories.getIncomeCategories();
+          setCategories(data);
+        } catch (err) {
+          console.error("Failed to fetch income categories:", err);
+          setError("Failed to load income categories. Please try again.");
+        } finally {
+          setCategoryLoading(false);
+        }
+      }
+    };
+    
+    fetchCategories();
+  }, [activeTab]);
 
   useEffect(() => {
     const replaceText = async () => {
@@ -189,14 +222,28 @@ export default function ExpensePage() {
 
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold mb-4">Danh mục</h2>
-              {activeTab === "expense" 
-                ? <ExpenseCategories onSelectCategory={handleCategorySelect} selectedCategoryId={selectedCategory?.id} /> 
-                : <IncomeCategories onSelectCategory={handleCategorySelect} selectedCategoryId={selectedCategory?.id} />
-              }
-              {selectedCategory && (
-                <div className="mt-4 text-sm text-green-600">
-                  Đã chọn: {selectedCategory.name}
-                </div>
+              {categoryLoading ? (
+                <div className="text-center py-4">Loading categories...</div>
+              ) : (
+                <>
+                  {activeTab === "expense" 
+                    ? <ExpenseCategories 
+                        onSelectCategory={handleCategorySelect} 
+                        selectedCategoryId={selectedCategory?.id}
+                        categories={categories} 
+                      /> 
+                    : <IncomeCategories 
+                        onSelectCategory={handleCategorySelect} 
+                        selectedCategoryId={selectedCategory?.id}
+                        categories={categories}
+                      />
+                  }
+                  {selectedCategory && (
+                    <div className="mt-4 text-sm text-green-600">
+                      Đã chọn: {selectedCategory.name}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

@@ -23,6 +23,8 @@ export default function IncomePage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<{id: number, name: string} | null>(null)
   const [replacedNote, setReplacedNote] = useState("")
+  const [categories, setCategories] = useState<any[]>([])
+  const [categoryLoading, setCategoryLoading] = useState(false)
 
   const handlePreviousDay = () => {
     const newDate = new Date(selectedDate)
@@ -35,6 +37,24 @@ export default function IncomePage() {
     newDate.setDate(newDate.getDate() + 1)
     setSelectedDate(newDate)
   }
+
+  // Fetch income categories on component load
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setCategoryLoading(true);
+        const data = await api.categories.getIncomeCategories();
+        setCategories(data);
+      } catch (err) {
+        console.error("Failed to fetch income categories:", err);
+        setError("Failed to load income categories. Please try again.");
+      } finally {
+        setCategoryLoading(false);
+      }
+    };
+    
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     const replaceText = async () => {
@@ -183,10 +203,15 @@ export default function IncomePage() {
             {/* Categories */}
             <div className="p-4">
               <h2 className="text-gray-600 mb-4">Danh mục</h2>
-              <IncomeCategories 
-                onSelectCategory={handleCategorySelect}
-                selectedCategoryId={selectedCategory?.id}
-              />
+              {categoryLoading ? (
+                <div className="text-center py-4">Loading categories...</div>
+              ) : (
+                <IncomeCategories 
+                  onSelectCategory={handleCategorySelect}
+                  selectedCategoryId={selectedCategory?.id}
+                  categories={categories}
+                />
+              )}
               {selectedCategory && (
                 <div className="mt-4 text-sm text-green-600">
                   Đã chọn: {selectedCategory.name}

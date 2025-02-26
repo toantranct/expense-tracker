@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 import Sidebar from "../components/Sidebar"
 import BottomNav from "../components/BottomNav"
 import { EditTransactionDialog } from "../components/EditTransactionDialog"
-import { mockMonthData, mockTransactions } from "@/lib/mock-data"
+import { api } from "@/lib/api"
 
 const weekDays = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
 const months = [
@@ -27,11 +27,24 @@ const months = [
 ]
 
 export default function CalendarPage() {
-  const [selectedDate, setSelectedDate] = useState(new Date(2024, 4, 30)) // May 30, 2024
+  const [selectedDate, setSelectedDate] = useState(new Date()) // Current date
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null)
   const transactionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [monthData, setMonthData] = useState<any>({
+    month: 0,
+    year: 0,
+    startBalance: 0,
+    endBalance: 0,
+    totalIncome: 0,
+    totalExpense: 0,
+    netAmount: 0,
+    days: {}
+  })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const year = selectedDate.getFullYear()
   const month = selectedDate.getMonth()
@@ -74,7 +87,7 @@ export default function CalendarPage() {
   const getDayData = (year: number, month: number, day: number) => {
     const date = new Date(year, month, day)
     const dateKey = formatDateKey(date)
-    return mockMonthData.days[dateKey] || { income: 0, expense: 0 }
+    return monthData.days[dateKey] || { income: 0, expense: 0 }
   }
 
   const formatCurrency = (amount: number) => {
@@ -83,11 +96,11 @@ export default function CalendarPage() {
 
   const getTransactionsForDate = (date: Date) => {
     const dateKey = formatDateKey(date)
-    return mockTransactions.filter((t) => t.date === dateKey)
+    return transactions.filter((t) => t.date === dateKey)
   }
 
   // Group transactions by date
-  const groupedTransactions = mockTransactions.reduce(
+  const groupedTransactions = transactions.reduce(
     (acc, transaction) => {
       if (!acc[transaction.date]) {
         acc[transaction.date] = []
@@ -95,7 +108,7 @@ export default function CalendarPage() {
       acc[transaction.date].push(transaction)
       return acc
     },
-    {} as { [key: string]: typeof mockTransactions },
+    {} as { [key: string]: any[] },
   )
 
   // Sort dates in reverse chronological order
@@ -126,11 +139,23 @@ export default function CalendarPage() {
     setIsEditDialogOpen(true)
   }
 
-  const handleSaveTransaction = (updatedTransaction: any) => {
-    // Here you would typically update the transaction in your data store or API
-    console.log("Updated transaction:", updatedTransaction)
-    // For now, we'll just close the dialog
-    setIsEditDialogOpen(false)
+  const handleSaveTransaction = async (updatedTransaction: any) => {
+    try {
+      if (updatedTransaction.type === "expense") {
+        await api.expenses.update(updatedTransaction.id, updatedTransaction);
+      } else {
+        await api.income.update(updatedTransaction.id, updatedTransaction);
+      }
+      
+      // Refresh data after update
+      fetchMonthData(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
+      fetchTransactions();
+      
+      setIsEditDialogOpen(false);
+    } catch (error) {
+      console.error("Error updating transaction:", error);
+      // Keep dialog open to show error
+    }
   }
 
   const handlePrevious = () => {
@@ -144,13 +169,44 @@ export default function CalendarPage() {
     newDate.setMonth(newDate.getMonth() + 1)
     setSelectedDate(newDate)
   }
+  
+  const fetchMonthData = async (year: number, month: number) => {
+    try {
+      setLoading(true);
+      const data = await api.summary.monthly(year, month);
+      setMonthData(data);
+    } catch (err) {
+      console.error("Error fetching month data:", err);
+      setError("Failed to load month data. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch both expenses and income for the month
+      const expenses = await api.expenses.getAll();
+      const income = await api.income.getAll();
+      
+      // Combine and sort by date
+      const allTransactions = [...expenses, ...income];
+      setTransactions(allTransactions);
+    } catch (err) {
+      console.error("Error fetching transactions:", err);
+      setError("Failed to load transactions. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Fetch data for the selected month
-    // For now, we'll just log the selected date
-    console.log("Fetching data for:", selectedDate.toISOString().split("T")[0])
-    // TODO: Implement actual data fetching logic here
-  }, [selectedDate])
+    fetchMonthData(year, month + 1);
+    fetchTransactions();
+  }, [year, month])
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -254,15 +310,15 @@ export default function CalendarPage() {
               <div className="p-4 grid grid-cols-3 gap-4 text-center">
                 <div>
                   <div className="text-sm text-gray-500">Thu nhập</div>
-                  <div className="text-blue-500 font-semibold">{formatCurrency(mockMonthData.totalIncome)}đ</div>
+                  <div className="text-blue-500 font-semibold">{formatCurrency(monthData.totalIncome)}đ</div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Chi tiêu</div>
-                  <div className="text-red-500 font-semibold">{formatCurrency(mockMonthData.totalExpense)}đ</div>
+                  <div className="text-red-500 font-semibold">{formatCurrency(monthData.totalExpense)}đ</div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Tổng</div>
-                  <div className="text-blue-500 font-semibold">+{formatCurrency(mockMonthData.netAmount)}đ</div>
+                  <div className="text-blue-500 font-semibold">+{formatCurrency(monthData.netAmount)}đ</div>
                 </div>
               </div>
             </Card>
@@ -271,14 +327,26 @@ export default function CalendarPage() {
               <div className="p-4 grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-sm text-gray-500">Số dư đầu kì</div>
-                  <div className="font-semibold">+{formatCurrency(mockMonthData.startBalance)}đ</div>
+                  <div className="font-semibold">+{formatCurrency(monthData.startBalance)}đ</div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Số dư</div>
-                  <div className="font-semibold">+{formatCurrency(mockMonthData.endBalance)}đ</div>
+                  <div className="font-semibold">+{formatCurrency(monthData.endBalance)}đ</div>
                 </div>
               </div>
             </Card>
+            
+            {error && (
+              <Card className="mb-6 bg-red-50">
+                <div className="p-4 text-red-500">{error}</div>
+              </Card>
+            )}
+            
+            {loading && sortedDates.length === 0 && (
+              <Card className="mb-6">
+                <div className="p-4 text-center">Loading...</div>
+              </Card>
+            )}
 
             <div className="space-y-4">
               {sortedDates.map((date) => (

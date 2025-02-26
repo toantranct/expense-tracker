@@ -1,7 +1,24 @@
 import { Button } from "@/components/ui/button"
 import { Utensils, Shirt, Wine, PillIcon as Pills, Droplet, Train, Phone, Home, Star, ShoppingCart } from "lucide-react"
 
-const categories = [
+// Default icons mapping for categories
+const iconMapping: { [key: string]: any } = {
+  "Ăn uống": { icon: Utensils, color: "text-orange-500" },
+  "Chi tiêu hàng...": { icon: ShoppingCart, color: "text-green-500" },
+  "Quần áo": { icon: Shirt, color: "text-blue-500" },
+  "Phí giao lưu": { icon: Wine, color: "text-yellow-500" },
+  "Y tế": { icon: Pills, color: "text-green-500" },
+  "Tiền điện": { icon: Droplet, color: "text-cyan-500" },
+  "Đi lại": { icon: Train, color: "text-gray-500" },
+  "Phí liên lạc": { icon: Phone, color: "text-gray-500" },
+  "Tiền nhà": { icon: Home, color: "text-yellow-500" },
+  "Bí a": { icon: Star, color: "text-yellow-400" },
+  "Trả nợ": { icon: Star, color: "text-red-500" },
+  "Mua đồ online": { icon: ShoppingCart, color: "text-yellow-500" },
+}
+
+// Fallback categories when API fails
+const defaultCategories = [
   { id: 1, name: "Ăn uống", icon: Utensils, color: "text-orange-500" },
   { id: 2, name: "Chi tiêu hàng...", icon: ShoppingCart, color: "text-green-500" },
   { id: 3, name: "Quần áo", icon: Shirt, color: "text-blue-500" },
@@ -19,9 +36,22 @@ const categories = [
 interface ExpenseCategoriesProps {
   onSelectCategory?: (category: {id: number, name: string}) => void;
   selectedCategoryId?: number;
+  categories?: any[];
 }
 
-export default function ExpenseCategories({ onSelectCategory, selectedCategoryId }: ExpenseCategoriesProps = {}) {
+export default function ExpenseCategories({ 
+  onSelectCategory, 
+  selectedCategoryId,
+  categories: apiCategories 
+}: ExpenseCategoriesProps = {}) {
+  
+  // Use API categories if provided, otherwise use default
+  const categories = apiCategories?.length ? 
+    apiCategories.map(cat => {
+      const iconData = iconMapping[cat.name] || { icon: Star, color: "text-gray-500" };
+      return { ...cat, ...iconData };
+    }) : 
+    defaultCategories;
   return (
     <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
       {categories.map((category) => {
